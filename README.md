@@ -1,9 +1,10 @@
 # reorganize
+
 <img width="1535" height="412" alt="Screenshot 2026-09-05 001349" src="https://github.com/user-attachments/assets/8c1ad18b-5a5a-45ce-abd9-3a5e6c33abb1" />
 
 A small Rust CLI tool for organizing files and folders.
 
-> **Status:** Learning project — currently focused on learning Rust fundamentals and filesystem operations.
+> **Status:** Learning project — currently focused on learning Rust fundamentals, filesystem operations, and CLI development.
 
 ## What it does
 
@@ -13,8 +14,12 @@ A small Rust CLI tool for organizing files and folders.
 * Resolve the directory from the user's Windows home directory.
 * Check whether the directory exists.
 * Read the directory contents.
-* Print the files found inside it.
-* Handle invalid directories without crashing.
+* Detect files and directories.
+* Extract file extensions.
+* Categorize files.
+* Create folders based on file categories.
+* Move files into their appropriate folders.
+* Handle invalid directory paths gracefully.
 
 ### Example
 
@@ -59,7 +64,7 @@ Run the application:
 cargo run
 ```
 
-## Current learning goals
+## Current Learning Goals
 
 This project is being built incrementally while learning Rust.
 
@@ -73,7 +78,7 @@ Current concepts covered:
 * `if / else if / else`
 * `for` loops
 * Environment variables
-* String interpolation with `format!`
+* String formatting with `format!`
 * Filesystem operations with `std::fs`
 * `Path`
 * `Result`
@@ -82,46 +87,47 @@ Current concepts covered:
 
 ## Roadmap
 
-The project will gradually become a real file organizer.
+The project is being developed through several learning quests.
 
-### Planned features include:
+### Quest 1 — Core Rust
 
-Quest 1 — Core Rust
-[x] Variables
-[x] Input
-[x] Conditions
-[x] Loops
-[x] Strings
-[x] Environment variables
-[x] Result / match
-[x] Filesystem reading
+* [x] Variables
+* [x] Input
+* [x] Conditions
+* [x] Loops
+* [x] Strings
+* [x] Environment variables
+* [x] `Result` / `match`
+* [x] Filesystem reading
 
-Quest 2 — Reorganize Engine
-[x] Detect files/directories
-[x] Extract filenames
-[x] Extract extensions
-[x] Categorize files
-[x] Create folders
-[x] Move files
-[x] Handle failures safely
+### Quest 2 — Reorganize Engine
 
-Quest 3 — CLI UI
-[ ] Colored output
-[ ] Spinners
-[ ] Progress bars
-[ ] Interactive prompts
-[ ] Selection menus
-[ ] Confirmation prompts
-[ ] Clean success/error states
-[ ] ASCII/logo branding
+* [x] Detect files/directories
+* [x] Extract filenames
+* [x] Extract extensions
+* [x] Categorize files
+* [x] Create folders
+* [x] Move files
+* [x] Handle filesystem errors safely
 
-Quest 4 — AI
-[ ] Local LLM integration
-[ ] AI-assisted file categorization
-[ ] AI-generated organization rules
-[ ] Natural-language commands
-[ ] Explain why files were categorized
+### Quest 3 — CLI UI
 
+* [ ] Colored output
+* [ ] Spinners
+* [ ] Progress bars
+* [ ] Interactive prompts
+* [ ] Selection menus
+* [ ] Confirmation prompts
+* [ ] Clean success/error states
+* [ ] ASCII/logo branding
+
+### Quest 4 — AI
+
+* [ ] Local LLM integration
+* [ ] AI-assisted file categorization
+* [ ] AI-generated organization rules
+* [ ] Natural-language commands
+* [ ] Explain why files were categorized
 
 ## Why this project?
 
@@ -129,6 +135,8 @@ Quest 4 — AI
 
 Each feature introduces a new Rust concept while contributing to a useful real-world application.
 
-## License
+## Project Status
 
-This project is for learning and experimentation.
+This is currently a learning and experimentation project. The goal is to gradually turn reorganize into a polished, practical file-organizing CLI while continuing to learn Rust.
+
+This is currently a learning and experimentation project. The goal is to gradually turn `reorganize` into a polished, practical file-organizing CLI while continuing to learn Rust.
