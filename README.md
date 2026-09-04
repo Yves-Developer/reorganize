@@ -94,7 +94,7 @@ The project is being developed through several learning quests.
 
 ### Quest 3 — CLI UI
 
-* [ ] Colored output
+* [x] Colored output
 * [ ] Spinners
 * [ ] Progress bars
 * [ ] Interactive prompts
