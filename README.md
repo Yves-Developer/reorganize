@@ -84,20 +84,43 @@ Current concepts covered:
 
 The project will gradually become a real file organizer.
 
-Planned features include:
+### Planned features include:
 
-## Planned features
+Quest 1 — Core Rust
+[x] Variables
+[x] Input
+[x] Conditions
+[x] Loops
+[x] Strings
+[x] Environment variables
+[x] Result / match
+[x] Filesystem reading
 
-* [x] Display file names cleanly
-* [ ] Detect files and directories
-* [ ] Detect file extensions
-* [ ] Group files by type
-* [ ] Create destination folders
-* [ ] Move files
-* [ ] Handle filesystem errors properly
-* [ ] Add command-line arguments
-* [ ] Add configuration
-* [ ] Improve cross-platform support
+Quest 2 — Reorganize Engine
+[x] Detect files/directories
+[x] Extract filenames
+[x] Extract extensions
+[x] Categorize files
+[x] Create folders
+[x] Move files
+[x] Handle failures safely
+
+Quest 3 — CLI UI
+[ ] Colored output
+[ ] Spinners
+[ ] Progress bars
+[ ] Interactive prompts
+[ ] Selection menus
+[ ] Confirmation prompts
+[ ] Clean success/error states
+[ ] ASCII/logo branding
+
+Quest 4 — AI
+[ ] Local LLM integration
+[ ] AI-assisted file categorization
+[ ] AI-generated organization rules
+[ ] Natural-language commands
+[ ] Explain why files were categorized
 
 
 ## Why this project?
