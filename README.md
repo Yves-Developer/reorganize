@@ -23,17 +23,8 @@ A small Rust CLI tool for organizing files and folders.
 
 ### Example
 
-<img width="1535" height="810" alt="Screenshot 2026-09-05 003630" src="https://github.com/user-attachments/assets/4078a7f3-1484-4075-9bd7-054a2c53df11" />
+<img width="1535" height="811" alt="Screenshot 2026-09-05 004920" src="https://github.com/user-attachments/assets/07c1b901-7306-4479-988e-be62ca0002af" />
 
-
-If the directory doesn't exist:
-
-```text
-Enter Directory name to organize:
-SomethingFake
-
-Directory does not exist.
-```
 
 ## Technologies
 
