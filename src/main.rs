@@ -58,17 +58,18 @@ fn main() {
         println!();
         println!(
             "{} {}",
-            "✖".red().bold(),
+            "×",
             "Directory shouldn't be empty!".red()
         );
         return;
     }
+    println!("{} {}", "✓", "Organization complete!".green().bold());
 
     println!();
 
     println!(
         "{} {}",
-        "✔".green().bold(),
+        "✓".green().bold(),
         format!("Scanning {}...", directory).bold()
     );
 
@@ -82,7 +83,7 @@ fn main() {
         Err(_) => {
             println!(
                 "{} {}",
-                "✖".red().bold(),
+                "×".red().bold(),
                 "Directory does not exist.".red()
             );
             return;
@@ -603,7 +604,7 @@ fn main() {
     println!("{}", "  ─────────────────────────────".dimmed());
     println!(
         "  {} {}",
-        "✔".green().bold(),
+        "✓".green().bold(),
         "Organization complete!".green().bold()
     );
     println!("{}", "  ─────────────────────────────".dimmed());
