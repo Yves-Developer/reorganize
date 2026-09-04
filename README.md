@@ -86,7 +86,9 @@ The project will gradually become a real file organizer.
 
 Planned features include:
 
-* [ ] Display file names cleanly
+## Planned features
+
+* [x] Display file names cleanly
 * [ ] Detect files and directories
 * [ ] Detect file extensions
 * [ ] Group files by type
@@ -96,6 +98,7 @@ Planned features include:
 * [ ] Add command-line arguments
 * [ ] Add configuration
 * [ ] Improve cross-platform support
+
 
 ## Why this project?
 
