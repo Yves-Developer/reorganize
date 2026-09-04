@@ -1,6 +1,6 @@
 # reorganize
 
-<img width="1535" height="412" alt="Screenshot 2026-09-05 001349" src="https://github.com/user-attachments/assets/8c1ad18b-5a5a-45ce-abd9-3a5e6c33abb1" />
+<img width="957" height="282" alt="Screenshot 2026-09-05 003618" src="https://github.com/user-attachments/assets/42cd15f3-725f-4ac2-87ef-f3caf3f44d81" />
 
 A small Rust CLI tool for organizing files and folders.
 
@@ -23,17 +23,8 @@ A small Rust CLI tool for organizing files and folders.
 
 ### Example
 
-```text
-Enter Directory name to organize:
-Downloads
+<img width="1535" height="810" alt="Screenshot 2026-09-05 003630" src="https://github.com/user-attachments/assets/4078a7f3-1484-4075-9bd7-054a2c53df11" />
 
-Organising your Downloads folder...
-
-0000.jpg
-001.jpeg
-movie.mp4
-...
-```
 
 If the directory doesn't exist:
 
