@@ -137,6 +137,4 @@ Each feature introduces a new Rust concept while contributing to a useful real-w
 
 ## Project Status
 
-This is currently a learning and experimentation project. The goal is to gradually turn reorganize into a polished, practical file-organizing CLI while continuing to learn Rust.
-
 This is currently a learning and experimentation project. The goal is to gradually turn `reorganize` into a polished, practical file-organizing CLI while continuing to learn Rust.
