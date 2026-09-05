@@ -95,10 +95,10 @@ The project is being developed through several learning quests.
 ### Quest 3 — CLI UI
 
 * [x] Colored output
-* [ ] Spinners
-* [ ] Progress bars
+* [x] Spinners
+* [x] Progress bars
 * [ ] Interactive prompts
-* [ ] Selection menus
+* [x] Selection menus
 * [ ] Confirmation prompts
 * [ ] Clean success/error states
 * [ ] ASCII/logo branding
