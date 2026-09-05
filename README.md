@@ -19,6 +19,9 @@ A small Rust CLI tool for organizing files and folders.
 * Categorize files.
 * Create folders based on file categories.
 * Move files into their appropriate folders.
+* Organize a custom folder by typing its full path.
+* Rename rather than overwrite when a file of the same name already exists.
+* Report per-file failures without aborting the rest of the run.
 * Handle invalid directory paths gracefully.
 
 ### Example
@@ -30,7 +33,10 @@ A small Rust CLI tool for organizing files and folders.
 
 * Rust
 * Cargo
-* Standard Rust library (`std::io`, `std::env`, `std::fs`)
+* Standard Rust library (`std::io`, `std::env`, `std::fs`, `std::path`)
+* [`colored`](https://crates.io/crates/colored) — terminal colors
+* [`indicatif`](https://crates.io/crates/indicatif) — spinners and progress bars
+* [`inquire`](https://crates.io/crates/inquire) — interactive prompts
 
 ## Running the project
 
@@ -44,6 +50,12 @@ Run the application:
 
 ```bash
 cargo run
+```
+
+Run the test suite:
+
+```bash
+cargo test
 ```
 
 ## Current Learning Goals
@@ -66,6 +78,10 @@ Current concepts covered:
 * `Result`
 * Error handling with `match`
 * `Ok` and `Err`
+* `Option` and `ok_or_else`
+* Modules and `pub`
+* Error propagation with `?`
+* Unit tests with `#[cfg(test)]`
 
 ## Roadmap
 
@@ -97,11 +113,11 @@ The project is being developed through several learning quests.
 * [x] Colored output
 * [x] Spinners
 * [x] Progress bars
-* [ ] Interactive prompts
+* [x] Interactive prompts
 * [x] Selection menus
-* [ ] Confirmation prompts
-* [ ] Clean success/error states
-* [ ] ASCII/logo branding
+* [x] Confirmation prompts
+* [x] Clean success/error states
+* [x] ASCII/logo branding
 
 ### Quest 4 — AI
 

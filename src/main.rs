@@ -12,7 +12,7 @@ use organizer::relocator::relocate_file;
 
 use directory::path::get_directory_path;
 use directory::scanner::scan_directory;
-use directory::selector::select_directory;
+use directory::selector::{CUSTOM_PATH, prompt_custom_path, select_directory};
 
 fn main() {
     // =========================
@@ -27,20 +27,16 @@ fn main() {
   ██████╔╝█████╗  ██║   ██║██████╔╝██║  ███╗███████║██╔██╗ ██║██║  ███╔╝ █████╗
   ██╔══██╗██╔══╝  ██║   ██║██╔══██╗██║   ██║██╔══██║██║╚██╗██║██║ ███╔╝  ██╔══╝
   ██║  ██║███████╗╚██████╔╝██║  ██║╚██████╔╝██║  ██║██║ ╚████║██║███████╗███████╗
-  ╚═╝  ╚══════╝ ╚═╝  ╚═╝ ╚═╝  ╚═╝ ╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝  ╚═══╝╚═╝╚══════╝╚══════╝
+  ╚═╝  ╚═╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚══════╝╚══════╝
     "#
         .cyan()
     );
 
     println!(
         "{}",
-        "                    Organize your files effortlessly.".dimmed()
+        "              Organize your files effortlessly.".dimmed()
     );
 
-    println!();
-
-    println!("{}", "  REORGANIZE".bold().cyan());
-    println!("{}", "  Organize your files effortlessly.".dimmed());
     println!();
 
     // =========================
@@ -57,15 +53,33 @@ fn main() {
     };
 
     // =========================
-    // Custom Path Check
+    // Resolve Directory Path
     // =========================
 
-    if directory == "Custom path" {
+    // "Custom path" is typed in full; the presets live under the home directory.
+    let (label, path) = if directory == CUSTOM_PATH {
+        match prompt_custom_path() {
+            Ok(path) => (path.clone(), path),
+
+            Err(error) => {
+                println!();
+                println!("{} {}", "×".red(), error.red());
+
+                return;
+            }
+        }
+    } else {
+        (directory.clone(), get_directory_path(&directory))
+    };
+
+    let rootpath = Path::new(&path);
+
+    if !rootpath.is_dir() {
         println!();
         println!(
             "{} {}",
             "×".red(),
-            "Custom path is not implemented yet.".red()
+            format!("\"{}\" is not an existing folder.", path).red()
         );
 
         return;
@@ -75,7 +89,7 @@ fn main() {
     // Confirmation
     // =========================
 
-    let confirmed = Confirm::new(&format!("Do you want to organize \"{}\"?", directory))
+    let confirmed = Confirm::new(&format!("Do you want to organize \"{}\"?", label))
         .with_default(false)
         .prompt();
 
@@ -99,17 +113,10 @@ fn main() {
 
     println!();
 
-    // =========================
-    // Resolve Directory Path
-    // =========================
-
-    let path = get_directory_path(&directory);
-    let rootpath = Path::new(&path);
-
     println!(
         "{} {}",
         "✓".green(),
-        format!("Scanning {}...", directory).bold()
+        format!("Scanning {}...", label).bold()
     );
 
     // =========================
