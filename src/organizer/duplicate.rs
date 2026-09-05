@@ -5,15 +5,22 @@ use std::path::{Path, PathBuf};
 /// `extension` is `None` for files that have none (`LICENSE`, `Makefile`),
 /// which must still be de-duplicated — otherwise the caller's `fs::rename`
 /// would silently overwrite an existing file.
-pub fn resolve_duplicate(
+///
+/// `is_taken` decides whether a candidate is already spoken for. A real run
+/// asks the filesystem; a dry run also has to count destinations planned
+/// earlier in the same run, which do not exist on disk yet.
+pub fn resolve_duplicate<F>(
     destpath: &mut PathBuf,
     filestem: &str,
     extension: Option<&str>,
     destdir: &Path,
-) {
+    is_taken: F,
+) where
+    F: Fn(&Path) -> bool,
+{
     let mut counter = 0;
 
-    while destpath.exists() {
+    while is_taken(destpath) {
         counter += 1;
 
         let candidate = match extension {
@@ -58,7 +65,7 @@ mod tests {
         let dir = temp_dir();
         let mut dest = dir.join("notes.txt");
 
-        resolve_duplicate(&mut dest, "notes", Some("txt"), &dir);
+        resolve_duplicate(&mut dest, "notes", Some("txt"), &dir, |path| path.exists());
 
         assert_eq!(dest, dir.join("notes.txt"));
 
@@ -71,7 +78,7 @@ mod tests {
         touch(&dir, "notes.txt");
 
         let mut dest = dir.join("notes.txt");
-        resolve_duplicate(&mut dest, "notes", Some("txt"), &dir);
+        resolve_duplicate(&mut dest, "notes", Some("txt"), &dir, |path| path.exists());
 
         assert_eq!(dest, dir.join("notes (1).txt"));
 
@@ -86,7 +93,7 @@ mod tests {
         touch(&dir, "notes (2).txt");
 
         let mut dest = dir.join("notes.txt");
-        resolve_duplicate(&mut dest, "notes", Some("txt"), &dir);
+        resolve_duplicate(&mut dest, "notes", Some("txt"), &dir, |path| path.exists());
 
         assert_eq!(dest, dir.join("notes (3).txt"));
 
@@ -101,7 +108,7 @@ mod tests {
         touch(&dir, "LICENSE");
 
         let mut dest = dir.join("LICENSE");
-        resolve_duplicate(&mut dest, "LICENSE", None, &dir);
+        resolve_duplicate(&mut dest, "LICENSE", None, &dir, |path| path.exists());
 
         assert_eq!(dest, dir.join("LICENSE (1)"));
 
@@ -115,7 +122,7 @@ mod tests {
         touch(&dir, "Makefile (1)");
 
         let mut dest = dir.join("Makefile");
-        resolve_duplicate(&mut dest, "Makefile", None, &dir);
+        resolve_duplicate(&mut dest, "Makefile", None, &dir, |path| path.exists());
 
         assert_eq!(dest, dir.join("Makefile (2)"));
 
@@ -128,7 +135,7 @@ mod tests {
         touch(&dir, "LICENSE");
 
         let mut dest = dir.join("LICENSE");
-        resolve_duplicate(&mut dest, "LICENSE", None, &dir);
+        resolve_duplicate(&mut dest, "LICENSE", None, &dir, |path| path.exists());
 
         let name = dest.file_name().unwrap().to_string_lossy().into_owned();
         assert!(!name.ends_with('.'), "unexpected trailing dot in {name:?}");

@@ -22,6 +22,8 @@ A small Rust CLI tool for organizing files and folders.
 * Organize a custom folder by typing its full path.
 * Rename rather than overwrite when a file of the same name already exists.
 * Report per-file failures without aborting the rest of the run.
+* Preview every move with `--dry-run` before touching anything.
+* Undo the most recent run with `reorganize undo`.
 * Handle invalid directory paths gracefully.
 
 ### Example
@@ -50,6 +52,18 @@ Run the application:
 
 ```bash
 cargo run
+```
+
+Preview what would happen, without moving anything:
+
+```bash
+cargo run -- --dry-run
+```
+
+Put everything back where it was:
+
+```bash
+cargo run -- undo
 ```
 
 Run the test suite:
@@ -82,6 +96,9 @@ Current concepts covered:
 * Modules and `pub`
 * Error propagation with `?`
 * Unit tests with `#[cfg(test)]`
+* Enums and `impl` blocks
+* Closures as parameters
+* Buffered writes with `BufWriter`
 
 ## Roadmap
 
@@ -119,7 +136,13 @@ The project is being developed through several learning quests.
 * [x] Clean success/error states
 * [x] ASCII/logo branding
 
-### Quest 4 — AI
+### Quest 4 — Safety
+
+* [x] Dry-run preview
+* [x] Undo the last run
+* [ ] Confirm before creating unfamiliar folders
+
+### Quest 5 — AI
 
 * [ ] Local LLM integration
 * [ ] AI-assisted file categorization

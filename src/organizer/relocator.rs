@@ -1,49 +1,80 @@
+use std::collections::HashSet;
 use std::fs;
 use std::io;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::organizer::classifier::classify_file;
 use crate::organizer::duplicate::resolve_duplicate;
 
-/// Moves `currpath` into its category folder under `rootpath`.
+/// Works out where files should go, and (outside a dry run) moves them.
 ///
-/// Errors are returned rather than printed: the caller drives a progress bar,
-/// and writing to stdout mid-render corrupts it.
-pub fn relocate_file(currpath: &Path, rootpath: &Path) -> io::Result<()> {
-    let filename = currpath.file_name().ok_or_else(|| {
-        io::Error::new(
-            io::ErrorKind::InvalidInput,
-            "path does not end in a file name",
-        )
-    })?;
+/// Destinations chosen earlier in the same run are remembered, because during
+/// a dry run nothing is written to disk: without this, three loose `LICENSE`
+/// files would all be reported as moving to the same path.
+#[derive(Default)]
+pub struct Relocator {
+    claimed: HashSet<PathBuf>,
+}
 
-    let filestem = currpath
-        .file_stem()
-        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "path has no file stem"))?
-        .to_string_lossy();
+impl Relocator {
+    pub fn new() -> Self {
+        Relocator::default()
+    }
 
-    let extension = currpath
-        .extension()
-        .map(|extension| extension.to_string_lossy().to_lowercase());
+    /// Decides the destination for `currpath` without touching the filesystem.
+    pub fn plan(&mut self, currpath: &Path, rootpath: &Path) -> io::Result<PathBuf> {
+        let filename = currpath.file_name().ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "path does not end in a file name",
+            )
+        })?;
 
-    let category = classify_file(extension.as_deref());
-    let destdir = rootpath.join(category.folder_name());
+        let filestem = currpath
+            .file_stem()
+            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "path has no file stem"))?
+            .to_string_lossy();
 
-    fs::create_dir_all(&destdir)?;
+        let extension = currpath
+            .extension()
+            .map(|extension| extension.to_string_lossy().to_lowercase());
 
-    let mut destpath = destdir.join(filename);
+        let category = classify_file(extension.as_deref());
+        let destdir = rootpath.join(category.folder_name());
 
-    resolve_duplicate(&mut destpath, &filestem, extension.as_deref(), &destdir);
+        let mut destpath = destdir.join(filename);
 
-    fs::rename(currpath, destpath)?;
+        let claimed = &self.claimed;
+        resolve_duplicate(
+            &mut destpath,
+            &filestem,
+            extension.as_deref(),
+            &destdir,
+            |path| path.exists() || claimed.contains(path),
+        );
 
-    Ok(())
+        self.claimed.insert(destpath.clone());
+
+        Ok(destpath)
+    }
+
+    /// Plans and then performs the move, returning where the file landed.
+    pub fn relocate(&mut self, currpath: &Path, rootpath: &Path) -> io::Result<PathBuf> {
+        let destpath = self.plan(currpath, rootpath)?;
+
+        if let Some(destdir) = destpath.parent() {
+            fs::create_dir_all(destdir)?;
+        }
+
+        fs::rename(currpath, &destpath)?;
+
+        Ok(destpath)
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::PathBuf;
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     static COUNTER: AtomicUsize = AtomicUsize::new(0);
@@ -83,7 +114,7 @@ mod tests {
         let root = temp_dir();
         let file = write(root.join("holiday.jpg"), "photo");
 
-        relocate_file(&file, &root).unwrap();
+        Relocator::new().relocate(&file, &root).unwrap();
 
         assert!(!file.exists(), "source file should have been moved");
         assert_eq!(read(root.join("Images/holiday.jpg")), "photo");
@@ -96,7 +127,7 @@ mod tests {
         let root = temp_dir();
         let file = write(root.join("SCAN.PDF"), "doc");
 
-        relocate_file(&file, &root).unwrap();
+        Relocator::new().relocate(&file, &root).unwrap();
 
         assert_eq!(read(root.join("Documents/SCAN.PDF")), "doc");
 
@@ -109,7 +140,7 @@ mod tests {
         write(root.join("Documents/notes.txt"), "original");
         let incoming = write(root.join("notes.txt"), "incoming");
 
-        relocate_file(&incoming, &root).unwrap();
+        Relocator::new().relocate(&incoming, &root).unwrap();
 
         assert_eq!(read(root.join("Documents/notes.txt")), "original");
         assert_eq!(read(root.join("Documents/notes (1).txt")), "incoming");
@@ -125,7 +156,7 @@ mod tests {
         write(root.join("Other/LICENSE"), "original");
         let incoming = write(root.join("LICENSE"), "incoming");
 
-        relocate_file(&incoming, &root).unwrap();
+        Relocator::new().relocate(&incoming, &root).unwrap();
 
         assert_eq!(
             read(root.join("Other/LICENSE")),
@@ -143,7 +174,7 @@ mod tests {
         write(root.join("Other/.gitignore"), "original");
         let incoming = write(root.join(".gitignore"), "incoming");
 
-        relocate_file(&incoming, &root).unwrap();
+        Relocator::new().relocate(&incoming, &root).unwrap();
 
         assert_eq!(read(root.join("Other/.gitignore")), "original");
         assert_eq!(read(root.join("Other/.gitignore (1)")), "incoming");
@@ -156,9 +187,59 @@ mod tests {
         let root = temp_dir();
         let missing = root.join("ghost.txt");
 
-        let result = relocate_file(&missing, &root);
+        let result = Relocator::new().relocate(&missing, &root);
 
         assert!(result.is_err(), "expected an error for a missing source file");
+
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    // A dry run writes nothing, so the filesystem cannot tell the planner that
+    // an earlier file already claimed a name. Without the claimed set, all
+    // three of these would be reported as landing on the same path.
+    #[test]
+    fn planning_does_not_reuse_a_destination_within_one_run() {
+        let root = temp_dir();
+        let a = write(root.join("LICENSE"), "a");
+        let b = write(root.join("nested/LICENSE"), "b");
+        let c = write(root.join("nested/deeper/LICENSE"), "c");
+
+        let mut relocator = Relocator::new();
+
+        let first = relocator.plan(&a, &root).unwrap();
+        let second = relocator.plan(&b, &root).unwrap();
+        let third = relocator.plan(&c, &root).unwrap();
+
+        assert_eq!(first, root.join("Other/LICENSE"));
+        assert_eq!(second, root.join("Other/LICENSE (1)"));
+        assert_eq!(third, root.join("Other/LICENSE (2)"));
+
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn planning_creates_nothing_on_disk() {
+        let root = temp_dir();
+        let file = write(root.join("holiday.jpg"), "photo");
+
+        let planned = Relocator::new().plan(&file, &root).unwrap();
+
+        assert_eq!(planned, root.join("Images/holiday.jpg"));
+        assert!(!root.join("Images").exists(), "plan must not create folders");
+        assert!(file.exists(), "plan must not move the file");
+
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn relocate_reports_where_the_file_landed() {
+        let root = temp_dir();
+        write(root.join("Documents/notes.txt"), "original");
+        let incoming = write(root.join("notes.txt"), "incoming");
+
+        let landed = Relocator::new().relocate(&incoming, &root).unwrap();
+
+        assert_eq!(landed, root.join("Documents/notes (1).txt"));
 
         fs::remove_dir_all(&root).unwrap();
     }
