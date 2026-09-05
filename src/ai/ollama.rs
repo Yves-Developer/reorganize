@@ -112,6 +112,37 @@ impl Ollama {
         })
     }
 
+    /// Like `generate`, but constrains the reply to a JSON schema.
+    ///
+    /// Without this a 3B model answers in prose and the result is unusable;
+    /// with it the reply parses reliably.
+    pub fn generate_json(
+        &self,
+        prompt: &str,
+        schema: serde_json::Value,
+    ) -> Result<String, AiError> {
+        let url = format!("{}/api/generate", self.host);
+
+        let request = serde_json::json!({
+            "model": self.model,
+            "prompt": prompt,
+            "stream": false,
+            "format": schema,
+            "options": { "temperature": 0 },
+        });
+
+        let generated: GenerateResponse = self
+            .agent
+            .post(&url)
+            .send_json(&request)
+            .map_err(|error| AiError::Unavailable(error.to_string()))?
+            .body_mut()
+            .read_json()
+            .map_err(|error| AiError::Malformed(error.to_string()))?;
+
+        Ok(generated.response)
+    }
+
     /// Sends a single non-streaming prompt and returns the raw completion.
     // Exercised by the tests; the rule-generation work is its first caller
     // in the binary itself.

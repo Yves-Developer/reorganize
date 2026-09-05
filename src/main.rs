@@ -1,6 +1,7 @@
 mod ai;
 mod cli;
 mod directory;
+mod inspect;
 mod naming;
 mod organizer;
 mod undo;
@@ -38,7 +39,7 @@ fn main() {
         Command::Help => println!("{USAGE}"),
         Command::Undo => run_undo(),
         Command::AiStatus => run_ai_status(),
-        Command::Organize { dry_run } => organize(dry_run),
+        Command::Organize { dry_run, ai, path } => organize(dry_run, ai, path),
     }
 }
 
@@ -180,7 +181,28 @@ fn display_name(path: &Path) -> String {
         .unwrap_or_else(|| path.to_string_lossy().into_owned())
 }
 
-fn organize(dry_run: bool) {
+/// Turns a menu choice into a display label and a concrete path.
+fn resolve_selection(directory: String) -> (String, String) {
+    if directory == CUSTOM_PATH {
+        match prompt_custom_path() {
+            Ok(path) => (path.clone(), path),
+
+            Err(error) => {
+                println!();
+                println!("{} {}", "×".red(), error.red());
+
+                std::process::exit(0);
+            }
+        }
+    } else {
+        let path = get_directory_path(&directory);
+
+        (directory, path)
+    }
+}
+
+fn organize(dry_run: bool, ai: bool, given_path: Option<String>) {
+    let path_was_given = given_path.is_some();
     // =========================
     // CLI Header
     // =========================
@@ -209,33 +231,23 @@ fn organize(dry_run: bool) {
     // Directory Selection
     // =========================
 
-    let directory = match select_directory() {
-        Ok(directory) => directory,
-        Err(error) => {
-            println!();
-            println!("{} {}", "×".red(), error.red());
-            return;
+    // A folder given on the command line skips the menu entirely, which is
+    // how you reach somewhere nested like Downloads\Invoices4.
+    let (label, path) = match given_path {
+        Some(given) => (given.clone(), given),
+
+        None => {
+            let directory = match select_directory() {
+                Ok(directory) => directory,
+                Err(error) => {
+                    println!();
+                    println!("{} {}", "×".red(), error.red());
+                    return;
+                }
+            };
+
+            resolve_selection(directory)
         }
-    };
-
-    // =========================
-    // Resolve Directory Path
-    // =========================
-
-    // "Custom path" is typed in full; the presets live under the home directory.
-    let (label, path) = if directory == CUSTOM_PATH {
-        match prompt_custom_path() {
-            Ok(path) => (path.clone(), path),
-
-            Err(error) => {
-                println!();
-                println!("{} {}", "×".red(), error.red());
-
-                return;
-            }
-        }
-    } else {
-        (directory.clone(), get_directory_path(&directory))
     };
 
     let rootpath = Path::new(&path);
@@ -255,25 +267,29 @@ fn organize(dry_run: bool) {
     // Confirmation
     // =========================
 
-    let confirmed = Confirm::new(&format!("Do you want to organize \"{}\"?", label))
-        .with_default(false)
-        .prompt();
+    // Naming the folder on the command line already answers this, and a dry
+    // run does not touch anything, so neither case needs asking.
+    if !path_was_given && !dry_run {
+        let confirmed = Confirm::new(&format!("Do you want to organize \"{}\"?", label))
+            .with_default(false)
+            .prompt();
 
-    match confirmed {
-        Ok(true) => {}
+        match confirmed {
+            Ok(true) => {}
 
-        Ok(false) => {
-            println!();
-            println!("{} {}", "×".red(), "Organization cancelled.".yellow());
+            Ok(false) => {
+                println!();
+                println!("{} {}", "×".red(), "Organization cancelled.".yellow());
 
-            return;
-        }
+                return;
+            }
 
-        Err(_) => {
-            println!();
-            println!("{} {}", "×".red(), "Confirmation cancelled.".red());
+            Err(_) => {
+                println!();
+                println!("{} {}", "×".red(), "Confirmation cancelled.".red());
 
-            return;
+                return;
+            }
         }
     }
 
@@ -335,61 +351,39 @@ fn organize(dry_run: bool) {
     println!();
 
     // =========================
-    // Dry Run: Preview Only
+    // Build the Plan
     // =========================
 
-    if dry_run {
-        let mut relocator = Relocator::new();
+    let mut relocator = Relocator::new();
+    let mut planned: Vec<PlannedMove> = Vec::new();
+    let mut failures: Vec<(PathBuf, std::io::Error)> = Vec::new();
 
-        for entry in &files {
-            let currpath = entry.path();
+    let ollama = if ai { Some(Ollama::from_env()) } else { None };
 
-            match relocator.plan(&currpath, rootpath) {
-                Ok(destpath) => {
-                    let destination = destpath
-                        .strip_prefix(rootpath)
-                        .unwrap_or(&destpath)
-                        .to_string_lossy()
-                        .into_owned();
+    if let Some(ollama) = &ollama {
+        // Say so up front: this is the slow path, and a missing server means
+        // every file quietly falls back to the extension classifier.
+        match ollama.installed_models() {
+            Ok(installed) if ollama.has_model(&installed) => {
+                println!(
+                    "{} {}",
+                    "✓".green(),
+                    format!("Asking {} about each file...", ollama.model()).bold()
+                );
+            }
 
-                    println!(
-                        "      {} {} {}",
-                        display_name(&currpath).yellow(),
-                        "→".dimmed(),
-                        destination.cyan()
-                    );
-                }
-
-                Err(error) => {
-                    println!(
-                        "      {} {}",
-                        display_name(&currpath).red(),
-                        format!("({error})").dimmed()
-                    );
-                }
+            _ => {
+                println!(
+                    "{} {}",
+                    "×".red(),
+                    "No usable local model; falling back to extensions.".yellow()
+                );
+                println!("  {}", "Run `reorganize ai` for details.".dimmed());
             }
         }
 
         println!();
-        println!("{}", "  -----------------------------".dimmed());
-        println!(
-            "  {} {}",
-            "✓".green(),
-            format!("{} {} would be organized.", total, file_word(total)).green().bold()
-        );
-        println!(
-            "  {}",
-            "Dry run — nothing was moved.".yellow().bold()
-        );
-        println!("{}", "  -----------------------------".dimmed());
-        println!();
-
-        return;
     }
-
-    // =========================
-    // Progress Bar
-    // =========================
 
     let progress = ProgressBar::new(total);
 
@@ -400,23 +394,161 @@ fn organize(dry_run: bool) {
     );
 
     progress.enable_steady_tick(Duration::from_millis(100));
-    progress.set_message("Organizing files...");
+    progress.set_message(if ai { "Reading files..." } else { "Planning..." });
+
+    for entry in &files {
+        let from = entry.path();
+
+        let outcome = match &ollama {
+            Some(ollama) => {
+                let facts = inspect::inspect(&from);
+                let proposal = ai::organizer::propose(ollama, &facts);
+
+                relocator
+                    .plan_into(
+                        &from,
+                        rootpath,
+                        &proposal.folder,
+                        proposal.new_stem.as_deref(),
+                    )
+                    .map(|to| (to, Some(proposal)))
+            }
+
+            None => relocator.plan(&from, rootpath).map(|to| (to, None)),
+        };
+
+        match outcome {
+            Ok((to, proposal)) => planned.push(PlannedMove { from, to, proposal }),
+            Err(error) => failures.push((from, error)),
+        }
+
+        progress.inc(1);
+    }
+
+    progress.finish_and_clear();
 
     // =========================
-    // Organize Files
+    // Show the Plan
     // =========================
 
-    let mut failures: Vec<(PathBuf, std::io::Error)> = Vec::new();
-    let mut relocator = Relocator::new();
+    // Renames are harder to reverse in your head than moves, so an AI run
+    // always shows its plan, even when it is about to act on it.
+    if dry_run || ai {
+        for move_ in &planned {
+            let destination = move_
+                .to
+                .strip_prefix(rootpath)
+                .unwrap_or(&move_.to)
+                .to_string_lossy()
+                .into_owned();
 
-    // Without a log the run cannot be undone, so a failure to open it stops
-    // the run rather than moving files that could never be put back.
+            let renamed = move_.to.file_name() != move_.from.file_name();
+
+            let suffix = if renamed {
+                "  (renamed)".magenta().to_string()
+            } else {
+                String::new()
+            };
+
+            println!(
+                "      {} {} {}{}",
+                display_name(&move_.from).yellow(),
+                "→".dimmed(),
+                destination.cyan(),
+                suffix
+            );
+
+            if let Some(proposal) = &move_.proposal {
+                if proposal.fell_back {
+                    println!(
+                        "          {}",
+                        format!("fell back: {}", proposal.reason).dimmed()
+                    );
+                } else if !proposal.reason.is_empty() {
+                    println!("          {}", proposal.reason.dimmed());
+                }
+            }
+        }
+
+        for (path, error) in &failures {
+            println!(
+                "      {} {}",
+                display_name(path).red(),
+                format!("({error})").dimmed()
+            );
+        }
+
+        println!();
+    }
+
+    if dry_run {
+        println!("{}", "  -----------------------------".dimmed());
+        println!(
+            "  {} {}",
+            "✓".green(),
+            format!(
+                "{} {} would be organized.",
+                planned.len(),
+                file_word(planned.len() as u64)
+            )
+            .green()
+            .bold()
+        );
+        println!("  {}", "Dry run — nothing was moved.".yellow().bold());
+        println!("{}", "  -----------------------------".dimmed());
+        println!();
+
+        return;
+    }
+
+    // =========================
+    // Confirm the Plan
+    // =========================
+
+    if ai {
+        let renames = planned
+            .iter()
+            .filter(|move_| move_.to.file_name() != move_.from.file_name())
+            .count();
+
+        let question = if renames > 0 {
+            format!(
+                "Apply this plan? {} {} will be renamed.",
+                renames,
+                file_word(renames as u64)
+            )
+        } else {
+            "Apply this plan?".to_string()
+        };
+
+        match Confirm::new(&question).with_default(false).prompt() {
+            Ok(true) => {}
+
+            _ => {
+                println!();
+                println!("{} {}", "×".red(), "Nothing was moved.".yellow());
+
+                return;
+            }
+        }
+
+        println!();
+    }
+
+    if planned.is_empty() {
+        println!("{} {}", "×".red(), "Nothing to move.".yellow());
+
+        return;
+    }
+
+    // =========================
+    // Execute
+    // =========================
+
     let mut log = match undo::RunLog::create() {
         Ok(log) => log,
 
         Err(error) => {
-            progress.finish_and_clear();
-
             println!();
             println!("{} Could not start the run log: {}", "×".red(), error);
             println!("{}", "  Nothing was moved.".yellow());
@@ -425,29 +557,36 @@ fn organize(dry_run: bool) {
         }
     };
 
-    for entry in files {
-        let curr_path = entry.path();
+    let progress = ProgressBar::new(planned.len() as u64);
 
-        match relocator.relocate(&curr_path, rootpath) {
-            Ok(destpath) => {
-                if let Err(error) = log.record(&curr_path, &destpath) {
+    progress.set_style(
+        ProgressStyle::with_template("  {spinner} {msg} [{bar:40.cyan/blue}] {pos}/{len}")
+            .unwrap()
+            .progress_chars("=>-"),
+    );
+
+    progress.enable_steady_tick(Duration::from_millis(100));
+    progress.set_message("Organizing files...");
+
+    let mut moved = 0u64;
+
+    for move_ in planned {
+        match relocator.perform(&move_.from, move_.to) {
+            Ok(destination) => {
+                moved += 1;
+
+                if let Err(error) = log.record(&move_.from, &destination) {
                     progress.suspend(|| {
                         println!("{} Could not record a move: {}", "×".red(), error);
                     });
                 }
             }
 
-            Err(error) => failures.push((curr_path, error)),
+            Err(error) => failures.push((move_.from, error)),
         }
 
         progress.inc(1);
     }
-
-    let log_path = log.finish();
-
-    // =========================
-    // Finish Progress
-    // =========================
 
     if failures.is_empty() {
         progress.finish_with_message("All files organized.");
@@ -455,12 +594,11 @@ fn organize(dry_run: bool) {
         progress.finish_with_message("Finished with some errors.");
     }
 
+    let log_path = log.finish();
+
     // =========================
     // Final State
     // =========================
-
-    let failed = failures.len() as u64;
-    let moved = total - failed;
 
     println!();
 
@@ -484,16 +622,15 @@ fn organize(dry_run: bool) {
         println!(
             "  {} {}",
             "×".red(),
-            format!("{} could not be moved:", failed).red().bold()
+            format!("{} could not be moved:", failures.len()).red().bold()
         );
 
         for (path, error) in &failures {
-            let name = path
-                .file_name()
-                .map(|name| name.to_string_lossy().into_owned())
-                .unwrap_or_else(|| path.to_string_lossy().into_owned());
-
-            println!("      {} {}", name.yellow(), format!("({error})").dimmed());
+            println!(
+                "      {} {}",
+                display_name(path).yellow(),
+                format!("({error})").dimmed()
+            );
         }
     }
 
@@ -507,4 +644,11 @@ fn organize(dry_run: bool) {
     println!("{}", "  -----------------------------".dimmed());
 
     println!();
+}
+
+/// One move decided before anything is written to disk.
+struct PlannedMove {
+    from: PathBuf,
+    to: PathBuf,
+    proposal: Option<ai::organizer::Proposal>,
 }

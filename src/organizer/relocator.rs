@@ -21,47 +21,70 @@ impl Relocator {
         Relocator::default()
     }
 
-    /// Decides the destination for `currpath` without touching the filesystem.
+    /// Decides the destination using the built-in extension classifier.
     pub fn plan(&mut self, currpath: &Path, rootpath: &Path) -> io::Result<PathBuf> {
-        let filename = currpath.file_name().ok_or_else(|| {
-            io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "path does not end in a file name",
-            )
-        })?;
+        let category = classify_file(lowercase_extension(currpath).as_deref());
 
-        let filestem = currpath
+        self.plan_into(currpath, rootpath, category.folder_name(), None)
+    }
+
+    /// Decides the destination using a caller-supplied folder and, optionally,
+    /// a new file stem. Both must already be sanitized.
+    ///
+    /// The extension always comes from the original file, so a rename can
+    /// never change what a file claims to be.
+    pub fn plan_into(
+        &mut self,
+        currpath: &Path,
+        rootpath: &Path,
+        folder: &str,
+        new_stem: Option<&str>,
+    ) -> io::Result<PathBuf> {
+        let current_stem = currpath
             .file_stem()
             .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "path has no file stem"))?
-            .to_string_lossy();
+            .to_string_lossy()
+            .into_owned();
 
+        let stem = new_stem.unwrap_or(&current_stem);
+
+        // Kept as written on disk: lowercasing it here would quietly rename
+        // every `.JPG` to `.jpg`.
         let extension = currpath
             .extension()
-            .map(|extension| extension.to_string_lossy().to_lowercase());
+            .map(|extension| extension.to_string_lossy().into_owned());
 
-        let category = classify_file(extension.as_deref());
-        let destdir = rootpath.join(category.folder_name());
+        let destdir = rootpath.join(folder);
+
+        let filename = match extension.as_deref() {
+            Some(extension) => format!("{stem}.{extension}"),
+            None => stem.to_string(),
+        };
 
         let mut destpath = destdir.join(filename);
 
         let claimed = &self.claimed;
-        resolve_duplicate(
-            &mut destpath,
-            &filestem,
-            extension.as_deref(),
-            &destdir,
-            |path| path.exists() || claimed.contains(path),
-        );
+        resolve_duplicate(&mut destpath, stem, extension.as_deref(), &destdir, |path| {
+            path.exists() || claimed.contains(path)
+        });
 
         self.claimed.insert(destpath.clone());
 
         Ok(destpath)
     }
 
-    /// Plans and then performs the move, returning where the file landed.
+    /// Plans with the built-in classifier and performs the move.
+    // A convenience wrapper: the binary plans everything up front and then
+    // calls `perform`, but this keeps the simple path available and tested.
+    #[allow(dead_code)]
     pub fn relocate(&mut self, currpath: &Path, rootpath: &Path) -> io::Result<PathBuf> {
         let destpath = self.plan(currpath, rootpath)?;
 
+        self.perform(currpath, destpath)
+    }
+
+    /// Moves a file to an already-planned destination.
+    pub fn perform(&mut self, currpath: &Path, destpath: PathBuf) -> io::Result<PathBuf> {
         if let Some(destdir) = destpath.parent() {
             fs::create_dir_all(destdir)?;
         }
@@ -70,6 +93,11 @@ impl Relocator {
 
         Ok(destpath)
     }
+}
+
+fn lowercase_extension(path: &Path) -> Option<String> {
+    path.extension()
+        .map(|extension| extension.to_string_lossy().to_lowercase())
 }
 
 #[cfg(test)]
