@@ -22,6 +22,7 @@ A small Rust CLI tool for organizing files and folders.
 * Organize a custom folder by typing its full path.
 * Rename rather than overwrite when a file of the same name already exists.
 * Report per-file failures without aborting the rest of the run.
+* Read file contents and let a local model choose folders and names (`--ai`).
 * Preview every move with `--dry-run` before touching anything.
 * Undo the most recent run with `reorganize undo`.
 * Handle invalid directory paths gracefully.
@@ -54,6 +55,18 @@ Run the application:
 
 ```bash
 cargo run
+```
+
+Organize a specific folder, at any depth, without the menu:
+
+```bash
+cargo run -- "C:\Users\You\Downloads\Invoices\2024"
+```
+
+Let a local model read each file and choose folders and names:
+
+```bash
+cargo run -- --ai --dry-run
 ```
 
 Preview what would happen, without moving anything:
@@ -153,10 +166,12 @@ The project is being developed through several learning quests.
 ### Quest 5 — AI
 
 * [x] Local LLM integration (Ollama client + `reorganize ai`)
-* [ ] AI-assisted file categorization
-* [ ] AI-generated organization rules
+* [x] AI-assisted file categorization (`--ai`)
+* [x] AI-chosen folder names
+* [x] AI-suggested file renames
+* [x] Explain why files were categorized
+* [ ] Persisted rules, so the model runs once instead of per file
 * [ ] Natural-language commands
-* [ ] Explain why files were categorized
 
 ## Local AI (optional)
 
@@ -174,7 +189,14 @@ cargo run -- ai
 | `OLLAMA_HOST` | `http://localhost:11434` | Where the server is listening |
 | `REORGANIZE_MODEL` | `llama3.2:3b` | Which model to use |
 
-Nothing leaves the machine, and only file *names* are ever sent — never file contents.
+With `--ai`, `reorganize` reads at most 4KB of each file. Text is excerpted;
+binaries are identified by their leading bytes and never quoted. Nothing leaves
+the machine — the model runs locally.
+
+Everything the model proposes is sanitized before it reaches the filesystem, and
+an AI run always previews its plan and asks before applying it. Extensions are
+never changed. If no model is running, `--ai` falls back to extension-based
+sorting with a warning.
 
 ## Why this project?
 

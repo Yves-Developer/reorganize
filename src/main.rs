@@ -17,7 +17,7 @@ use organizer::relocator::Relocator;
 
 use directory::path::get_directory_path;
 use directory::scanner::scan_directory;
-use directory::selector::{CUSTOM_PATH, prompt_custom_path, select_directory};
+use directory::selector::{CUSTOM_PATH, browse_from, prompt_custom_path, select_directory};
 
 use ai::ollama::Ollama;
 use cli::{Command, USAGE, parse_args};
@@ -197,7 +197,22 @@ fn resolve_selection(directory: String) -> (String, String) {
     } else {
         let path = get_directory_path(&directory);
 
-        (directory, path)
+        // Let the user walk into a subfolder, so somewhere like
+        // Downloads\Invoices4 is reachable without typing a path.
+        match browse_from(std::path::PathBuf::from(&path)) {
+            Some(chosen) => {
+                let label = chosen.to_string_lossy().into_owned();
+
+                (label.clone(), label)
+            }
+
+            None => {
+                println!();
+                println!("{} {}", "×".red(), "Selection cancelled.".red());
+
+                std::process::exit(0);
+            }
+        }
     }
 }
 
