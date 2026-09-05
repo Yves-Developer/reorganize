@@ -27,7 +27,7 @@ pub fn relocate_file(currpath: &Path, rootpath: &Path) -> io::Result<()> {
         .map(|extension| extension.to_string_lossy().to_lowercase());
 
     let category = classify_file(extension.as_deref());
-    let destdir = rootpath.join(category);
+    let destdir = rootpath.join(category.folder_name());
 
     fs::create_dir_all(&destdir)?;
 
