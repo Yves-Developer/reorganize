@@ -9,7 +9,7 @@ pub fn select_directory() -> Result<String, String> {
         Ok(directory) => Ok(directory.to_string()),
         Err(_) => {
             println!();
-            println!("{} {}", "×", "Selection cancelled.".red());
+            println!("{} {}", "×".red(), "Selection cancelled.".red());
 
             Err("Selection cancelled.".to_string())
         }

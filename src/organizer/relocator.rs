@@ -1,50 +1,43 @@
 use std::fs;
+use std::io;
 use std::path::Path;
 
 use crate::organizer::classifier::classify_file;
 use crate::organizer::duplicate::resolve_duplicate;
 
-pub fn relocate_file(currpath: &Path, rootpath: &Path) {
-    let filename = match currpath.file_name() {
-        Some(filename) => filename,
-        None => return,
-    };
+/// Moves `currpath` into its category folder under `rootpath`.
+///
+/// Errors are returned rather than printed: the caller drives a progress bar,
+/// and writing to stdout mid-render corrupts it.
+pub fn relocate_file(currpath: &Path, rootpath: &Path) -> io::Result<()> {
+    let filename = currpath.file_name().ok_or_else(|| {
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "path does not end in a file name",
+        )
+    })?;
+
+    let filestem = currpath
+        .file_stem()
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "path has no file stem"))?
+        .to_string_lossy();
 
     let extension = currpath
         .extension()
         .map(|extension| extension.to_string_lossy().to_lowercase());
 
     let category = classify_file(extension.as_deref());
-    let newpath = rootpath.join(category);
+    let destdir = rootpath.join(category);
 
-    let mut destinationpath = newpath.join(filename);
+    fs::create_dir_all(&destdir)?;
 
-    let filestem = match currpath.file_stem() {
-        Some(filestem) => filestem.to_string_lossy(),
-        None => return,
-    };
+    let mut destpath = destdir.join(filename);
 
-    resolve_duplicate(
-        &mut destinationpath,
-        &filestem,
-        extension.as_deref(),
-        &newpath,
-    );
-    match fs::create_dir_all(&newpath) {
-        Ok(_) => {}
-        Err(error) => {
-            println!("Failed to create folder: {}", error);
-            return;
-        }
-    };
+    resolve_duplicate(&mut destpath, &filestem, extension.as_deref(), &destdir);
 
-    match fs::rename(currpath, destinationpath) {
-        Ok(_) => {}
-        Err(error) => {
-            println!("Failed to move file: {}", error);
-            return;
-        }
-    };
+    fs::rename(currpath, destpath)?;
+
+    Ok(())
 }
 
 #[cfg(test)]
@@ -90,7 +83,7 @@ mod tests {
         let root = temp_dir();
         let file = write(root.join("holiday.jpg"), "photo");
 
-        relocate_file(&file, &root);
+        relocate_file(&file, &root).unwrap();
 
         assert!(!file.exists(), "source file should have been moved");
         assert_eq!(read(root.join("Images/holiday.jpg")), "photo");
@@ -103,7 +96,7 @@ mod tests {
         let root = temp_dir();
         let file = write(root.join("SCAN.PDF"), "doc");
 
-        relocate_file(&file, &root);
+        relocate_file(&file, &root).unwrap();
 
         assert_eq!(read(root.join("Documents/SCAN.PDF")), "doc");
 
@@ -116,7 +109,7 @@ mod tests {
         write(root.join("Documents/notes.txt"), "original");
         let incoming = write(root.join("notes.txt"), "incoming");
 
-        relocate_file(&incoming, &root);
+        relocate_file(&incoming, &root).unwrap();
 
         assert_eq!(read(root.join("Documents/notes.txt")), "original");
         assert_eq!(read(root.join("Documents/notes (1).txt")), "incoming");
@@ -132,7 +125,7 @@ mod tests {
         write(root.join("Other/LICENSE"), "original");
         let incoming = write(root.join("LICENSE"), "incoming");
 
-        relocate_file(&incoming, &root);
+        relocate_file(&incoming, &root).unwrap();
 
         assert_eq!(
             read(root.join("Other/LICENSE")),
@@ -150,10 +143,22 @@ mod tests {
         write(root.join("Other/.gitignore"), "original");
         let incoming = write(root.join(".gitignore"), "incoming");
 
-        relocate_file(&incoming, &root);
+        relocate_file(&incoming, &root).unwrap();
 
         assert_eq!(read(root.join("Other/.gitignore")), "original");
         assert_eq!(read(root.join("Other/.gitignore (1)")), "incoming");
+
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn returns_an_error_instead_of_printing_when_the_move_fails() {
+        let root = temp_dir();
+        let missing = root.join("ghost.txt");
+
+        let result = relocate_file(&missing, &root);
+
+        assert!(result.is_err(), "expected an error for a missing source file");
 
         fs::remove_dir_all(&root).unwrap();
     }

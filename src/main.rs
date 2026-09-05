@@ -1,7 +1,7 @@
 mod directory;
 mod organizer;
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use colored::Colorize;
@@ -180,10 +180,14 @@ fn main() {
     // Organize Files
     // =========================
 
+    let mut failures: Vec<(PathBuf, std::io::Error)> = Vec::new();
+
     for entry in files {
         let curr_path = entry.path();
 
-        relocate_file(&curr_path, rootpath);
+        if let Err(error) = relocate_file(&curr_path, rootpath) {
+            failures.push((curr_path, error));
+        }
 
         progress.inc(1);
     }
@@ -192,11 +196,18 @@ fn main() {
     // Finish Progress
     // =========================
 
-    progress.finish_with_message("Organization complete!");
+    if failures.is_empty() {
+        progress.finish_with_message("All files organized.");
+    } else {
+        progress.finish_with_message("Finished with some errors.");
+    }
 
     // =========================
-    // Final Success State
+    // Final State
     // =========================
+
+    let failed = failures.len() as u64;
+    let moved = total - failed;
 
     println!();
 
@@ -205,14 +216,33 @@ fn main() {
     println!(
         "  {} {}",
         "✓".green(),
-        format!("{} files processed.", total).green().bold()
+        format!("{} of {} files organized.", moved, total)
+            .green()
+            .bold()
     );
 
-    println!(
-        "  {} {}",
-        "✓".green(),
-        "Organization complete!".green().bold()
-    );
+    if failures.is_empty() {
+        println!(
+            "  {} {}",
+            "✓".green(),
+            "Organization complete!".green().bold()
+        );
+    } else {
+        println!(
+            "  {} {}",
+            "×".red(),
+            format!("{} could not be moved:", failed).red().bold()
+        );
+
+        for (path, error) in &failures {
+            let name = path
+                .file_name()
+                .map(|name| name.to_string_lossy().into_owned())
+                .unwrap_or_else(|| path.to_string_lossy().into_owned());
+
+            println!("      {} {}", name.yellow(), format!("({error})").dimmed());
+        }
+    }
 
     println!("{}", "  -----------------------------".dimmed());
 
