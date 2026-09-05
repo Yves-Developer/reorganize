@@ -72,3 +72,48 @@ pub fn classify_file(extension: Option<&str>) -> &str {
         _ => "Other",
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn classifies_each_known_category() {
+        assert_eq!(classify_file(Some("png")), "Images");
+        assert_eq!(classify_file(Some("mkv")), "Videos");
+        assert_eq!(classify_file(Some("flac")), "Audio");
+        assert_eq!(classify_file(Some("pdf")), "Documents");
+        assert_eq!(classify_file(Some("zip")), "Archives");
+        assert_eq!(classify_file(Some("exe")), "Applications");
+        assert_eq!(classify_file(Some("rs")), "Code");
+        assert_eq!(classify_file(Some("ttf")), "Fonts");
+        assert_eq!(classify_file(Some("iso")), "Disk Images");
+        assert_eq!(classify_file(Some("lnk")), "Shortcuts");
+        assert_eq!(classify_file(Some("epub")), "E-books");
+        assert_eq!(classify_file(Some("apk")), "Android Builds");
+        assert_eq!(classify_file(Some("ipa")), "iOS Builds");
+    }
+
+    #[test]
+    fn unknown_extension_falls_back_to_other() {
+        assert_eq!(classify_file(Some("qwerty")), "Other");
+    }
+
+    #[test]
+    fn missing_extension_falls_back_to_other() {
+        assert_eq!(classify_file(None), "Other");
+    }
+
+    #[test]
+    fn empty_extension_falls_back_to_other() {
+        assert_eq!(classify_file(Some("")), "Other");
+    }
+
+    // classify_file matches lowercase arms only; the caller is responsible
+    // for lowercasing. This pins that contract so it cannot drift silently.
+    #[test]
+    fn matching_is_case_sensitive_by_design() {
+        assert_eq!(classify_file(Some("PNG")), "Other");
+        assert_eq!(classify_file(Some("png")), "Images");
+    }
+}
