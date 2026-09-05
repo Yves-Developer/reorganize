@@ -1,6 +1,7 @@
 mod ai;
 mod cli;
 mod directory;
+mod naming;
 mod organizer;
 mod undo;
 

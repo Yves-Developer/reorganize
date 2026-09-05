@@ -325,4 +325,34 @@ mod tests {
         assert_eq!(normalize_host("http://box:11434/"), "http://box:11434");
         assert_eq!(normalize_host("https://box:11434"), "https://box:11434");
     }
+
+    // Hits a real Ollama server, so it is not part of the default run.
+    // Enable with: cargo test -- --ignored
+    #[test]
+    #[ignore = "requires a running Ollama server with the model pulled"]
+    fn generates_against_a_real_server() {
+        let ollama = Ollama::from_env();
+
+        let installed = ollama
+            .installed_models()
+            .expect("no Ollama server reachable");
+
+        assert!(
+            ollama.has_model(&installed),
+            "model {} is not installed; installed: {installed:?}",
+            ollama.model()
+        );
+
+        let answer = ollama
+            .generate(
+                "Reply with exactly one word and nothing else: \
+                 which category does a file named invoice_2024.pdf belong to? \
+                 Answer only with one of: Images, Documents, Audio.",
+            )
+            .expect("generate failed");
+
+        assert!(!answer.trim().is_empty(), "model returned an empty response");
+
+        println!("model replied: {:?}", answer.trim());
+    }
 }
