@@ -1,3 +1,4 @@
+mod ai;
 mod cli;
 mod directory;
 mod organizer;
@@ -16,6 +17,7 @@ use directory::path::get_directory_path;
 use directory::scanner::scan_directory;
 use directory::selector::{CUSTOM_PATH, prompt_custom_path, select_directory};
 
+use ai::ollama::Ollama;
 use cli::{Command, USAGE, parse_args};
 
 fn main() {
@@ -34,8 +36,72 @@ fn main() {
     match command {
         Command::Help => println!("{USAGE}"),
         Command::Undo => run_undo(),
+        Command::AiStatus => run_ai_status(),
         Command::Organize { dry_run } => organize(dry_run),
     }
+}
+
+fn run_ai_status() {
+    let ollama = Ollama::from_env();
+
+    println!();
+    println!("  {} {}", "Server:".dimmed(), ollama.host());
+    println!("  {} {}", "Model: ".dimmed(), ollama.model());
+    println!();
+
+    let installed = match ollama.installed_models() {
+        Ok(installed) => installed,
+
+        Err(error) => {
+            println!("  {} {}", "×".red(), "No local model server reached.".red().bold());
+            println!("      {}", format!("({error})").dimmed());
+            println!();
+            println!(
+                "  {}",
+                "Install Ollama and run `ollama serve`, then pull a model:".dimmed()
+            );
+            println!("  {}", format!("    ollama pull {}", ollama.model()).dimmed());
+            println!();
+            println!(
+                "  {}",
+                "reorganize works without it; AI features stay switched off.".dimmed()
+            );
+            println!();
+
+            return;
+        }
+    };
+
+    println!("  {} {}", "✓".green(), "Server reachable.".green().bold());
+
+    if installed.is_empty() {
+        println!("  {} {}", "×".red(), "No models pulled yet.".yellow());
+    } else {
+        println!("  {} {}", "✓".green(), format!("{} installed:", installed.len()).bold());
+
+        for name in &installed {
+            println!("      {}", name.cyan());
+        }
+    }
+
+    println!();
+
+    if ollama.has_model(&installed) {
+        println!(
+            "  {} {}",
+            "✓".green(),
+            format!("\"{}\" is ready to use.", ollama.model()).green().bold()
+        );
+    } else {
+        println!(
+            "  {} {}",
+            "×".red(),
+            format!("\"{}\" is not installed.", ollama.model()).red().bold()
+        );
+        println!("  {}", format!("    ollama pull {}", ollama.model()).dimmed());
+    }
+
+    println!();
 }
 
 fn run_undo() {

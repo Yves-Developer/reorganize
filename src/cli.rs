@@ -7,6 +7,7 @@
 pub enum Command {
     Organize { dry_run: bool },
     Undo,
+    AiStatus,
     Help,
 }
 
@@ -14,6 +15,7 @@ pub const USAGE: &str = "Usage:
   reorganize              Organize a folder
   reorganize --dry-run    Show what would move, without moving anything
   reorganize undo         Reverse the most recent run
+  reorganize ai           Check whether a local model is available
 
 Options:
   -n, --dry-run           Preview only
@@ -25,18 +27,28 @@ where
 {
     let mut dry_run = false;
     let mut undo = false;
+    let mut ai_status = false;
 
     for arg in args {
         match arg.as_str() {
             "-h" | "--help" => return Ok(Command::Help),
             "-n" | "--dry-run" => dry_run = true,
             "undo" => undo = true,
+            "ai" => ai_status = true,
             other => return Err(format!("Unknown argument: {other}")),
         }
     }
 
-    if undo && dry_run {
-        return Err("undo cannot be combined with --dry-run.".to_string());
+    if undo && ai_status {
+        return Err("undo and ai cannot be combined.".to_string());
+    }
+
+    if (undo || ai_status) && dry_run {
+        return Err("--dry-run only applies when organizing.".to_string());
+    }
+
+    if ai_status {
+        return Ok(Command::AiStatus);
     }
 
     if undo {
@@ -95,5 +107,16 @@ mod tests {
     #[test]
     fn undo_and_dry_run_together_are_rejected() {
         assert!(parse(&["undo", "--dry-run"]).is_err());
+    }
+
+    #[test]
+    fn ai_status_is_recognised() {
+        assert!(matches!(parse(&["ai"]), Ok(Command::AiStatus)));
+    }
+
+    #[test]
+    fn ai_rejects_meaningless_combinations() {
+        assert!(parse(&["ai", "--dry-run"]).is_err());
+        assert!(parse(&["ai", "undo"]).is_err());
     }
 }

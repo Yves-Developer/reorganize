@@ -39,6 +39,8 @@ A small Rust CLI tool for organizing files and folders.
 * [`colored`](https://crates.io/crates/colored) — terminal colors
 * [`indicatif`](https://crates.io/crates/indicatif) — spinners and progress bars
 * [`inquire`](https://crates.io/crates/inquire) — interactive prompts
+* [`ureq`](https://crates.io/crates/ureq) — HTTP, with TLS compiled out (local only)
+* [`serde`](https://crates.io/crates/serde) / [`serde_json`](https://crates.io/crates/serde_json) — JSON
 
 ## Running the project
 
@@ -64,6 +66,12 @@ Put everything back where it was:
 
 ```bash
 cargo run -- undo
+```
+
+Check whether a local model is available:
+
+```bash
+cargo run -- ai
 ```
 
 Run the test suite:
@@ -144,11 +152,29 @@ The project is being developed through several learning quests.
 
 ### Quest 5 — AI
 
-* [ ] Local LLM integration
+* [x] Local LLM integration (Ollama client + `reorganize ai`)
 * [ ] AI-assisted file categorization
 * [ ] AI-generated organization rules
 * [ ] Natural-language commands
 * [ ] Explain why files were categorized
+
+## Local AI (optional)
+
+AI features talk to a local [Ollama](https://ollama.com) server and are entirely
+optional — with no server running, `reorganize` behaves exactly as it does now.
+
+```bash
+ollama serve
+ollama pull llama3.2:3b
+cargo run -- ai
+```
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `OLLAMA_HOST` | `http://localhost:11434` | Where the server is listening |
+| `REORGANIZE_MODEL` | `llama3.2:3b` | Which model to use |
+
+Nothing leaves the machine, and only file *names* are ever sent — never file contents.
 
 ## Why this project?
 
